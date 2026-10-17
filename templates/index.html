@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!-- Tells the browser to use modern HTML5 standards. -->
+
+<html lang="en">
+<!-- Declares English as the primary page language. -->
+
+<head>
+    <!-- Contains page metadata, title, and stylesheet references. -->
+
+    <meta charset="UTF-8">
+    <!-- Supports standard Unicode characters and emojis. -->
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Makes the layout adapt to mobile, tablet, and desktop screens. -->
+
+    <title>TripMate AI</title>
+    <!-- Text displayed in the browser tab. -->
+
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Loads the custom CSS file served by FastAPI. -->
+</head>
+
+<body>
+    <!-- All visible page content goes inside the body. -->
+
+    <div class="page-bg">
+        <!-- Decorative background container. -->
+
+        <div class="gradient-circle circle-1"></div>
+        <div class="gradient-circle circle-2"></div>
+        <div class="gradient-circle circle-3"></div>
+        <!-- Decorative gradient circles styled through CSS. -->
+    </div>
+
+    <main class="app-container">
+        <!-- Main container for the travel planner interface. -->
+
+        <section class="hero-section">
+            <!-- Introductory section at the top of the page. -->
+
+            <div class="badge">
+                ✈️ TripMate AI — A Multi-Agent Travel Planner with LangGraph
+            </div>
+            <!-- Displays the application name and purpose. -->
+
+            <h1>
+                Plan Your Perfect Trip with AI
+            </h1>
+            <!-- Main page heading. -->
+
+            <p>
+                Search flights, discover hotels, and generate a complete
+                travel itinerary using a multi-agent LangGraph system.
+            </p>
+            <!-- Explains what the application offers. -->
+        </section>
+
+        <section class="planner-card">
+            <!-- Card containing the user's travel request controls. -->
+
+            <div class="card-header">
+                <div>
+                    <h2>Where do you want to go?</h2>
+
+                    <p>
+                        Example: Plan a complete 7 days Japan trip
+                        from Bangladesh under 2 lakhs.
+                    </p>
+                    <!-- Example prompt to help the user get started. -->
+                </div>
+
+                <div class="status-pill">
+                    <span class="status-dot"></span>
+                    Online
+                </div>
+                <!-- Visual status indicator; it is not a live health check. -->
+            </div>
+
+            <div class="input-area">
+                <textarea
+                    id="userInput"
+                    placeholder="Plan a complete 7 days Japan trip including flights, hotels and sightseeing under 2 lakhs..."
+                ></textarea>
+                <!-- User enters a travel request here.
+                     JavaScript reads this field using its ID. -->
+
+                <button id="sendBtn" onclick="sendMessage()">
+                    <span id="btnText">Generate Plan</span>
+                    <span id="btnLoader" class="loader hidden"></span>
+                </button>
+                <!-- Calls sendMessage() when clicked.
+                     The loader can indicate that a request is processing. -->
+            </div>
+
+            <div class="quick-prompts">
+                <!-- Prewritten prompts users can select with one click. -->
+
+                <button onclick="setPrompt('Plan a complete 7 days Japan trip from Bangladesh including flights, hotels and sightseeing under 2 lakhs.')">
+                    Japan Trip
+                </button>
+
+                <button onclick="setPrompt('Plan a 5 days Dubai trip from Dhaka with flights, hotels and sightseeing.')">
+                    Dubai Trip
+                </button>
+
+                <button onclick="setPrompt('Plan a 7 days Thailand trip from Bangladesh with budget hotels and sightseeing.')">
+                    Thailand Trip
+                </button>
+
+                <button onclick="setPrompt('Give me all country flight info.')">
+                    Global Flights
+                </button>
+                <!-- Each button calls setPrompt() with a predefined request. -->
+            </div>
+        </section>
+
+        <section id="resultSection" class="result-section hidden">
+            <!-- Hidden until JavaScript displays a result. -->
+
+            <div class="result-header">
+                <div>
+                    <h2>Your AI Travel Plan</h2>
+                    <p id="threadInfo">Thread ID: -</p>
+                    <!-- Displays the conversation's thread ID. -->
+                </div>
+
+                <div class="result-actions">
+                    <button class="copy-btn" onclick="copyResult()">
+                        Copy
+                    </button>
+                    <!-- Copies the generated result when implemented in JS. -->
+
+                    <button class="download-btn" onclick="downloadPDF()">
+                        Download PDF
+                    </button>
+                    <!-- Generates a PDF when implemented in JS. -->
+                </div>
+            </div>
+
+            <div id="pdfContent" class="pdf-content">
+                <!-- Container intended to be converted into a PDF. -->
+
+                <h1 class="pdf-title">AI Travel Plan</h1>
+
+                <div id="resultBox" class="result-box"></div>
+                <!-- JavaScript inserts the AI response into this element. -->
+            </div>
+        </section>
+
+        <section id="errorBox" class="error-box hidden"></section>
+        <!-- JavaScript can display request errors here. -->
+
+    </main>
+
+    <footer>
+        Built with FastAPI, LangGraph, Groq, PostgreSQL, Tavily and AviationStack
+    </footer>
+    <!-- Footer identifies the technologies used by the application. -->
+
+    <!-- Loads the Marked library for converting Markdown into HTML. -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Loads html2pdf.js for browser-based PDF generation. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Loads your own JavaScript functions from the static directory. -->
+    <script src="/static/script.js"></script>
+
+</body>
+</html>

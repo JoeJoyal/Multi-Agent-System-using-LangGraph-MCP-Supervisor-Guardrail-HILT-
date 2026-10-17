@@ -1,0 +1,81 @@
+# =========================
+# Environment variables and secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Python cache files
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# =========================
+# Virtual environments
+# =========================
+venv/
+.venv/
+env/
+ENV/
+
+# =========================
+# Git files
+# =========================
+.git/
+.gitignore
+.gitattributes
+
+# =========================
+# IDE and editor files
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Logs and local databases
+# =========================
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# Testing and coverage
+# =========================
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# =========================
+# Build artifacts
+# =========================
+build/
+dist/
+wheels/
+
+# =========================
+# OS-generated files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Documentation and local notes (optional)
+# Uncomment if you don't need these in the image
+# =========================
+images/
+docs/
+notebooks/
+.test_tool.py
+

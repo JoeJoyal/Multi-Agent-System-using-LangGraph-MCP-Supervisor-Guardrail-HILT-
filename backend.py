@@ -8,6 +8,7 @@
 """
 
 import os
+import json
 import certifi
 import asyncio
 from dotenv import load_dotenv
@@ -193,6 +194,217 @@ class TravelState(TypedDict):
     # Final response and execution metrics
     final_response: str
     llm_calls: int
+
+# ===================
+# Shared helpers
+# ===================
+
+# set of all agents that the supervisor is allowed to select.
+KNOW_AGENTS = {
+    "flight_agent",
+    "hotel_agent",
+    "weather_agent",
+    "budget_agent",
+    "itinerary_agent"
+}
+
+# Default execution order for the travel-planning workflow.
+"""
+This is a list, so its order matters. 
+It defines the default sequence for running the agents when the workflow needs all of them.
+
+flight_agent: find or summarize flight information
+hotel_agent: find accommodation information
+weather_agent: Retrieve weather information
+budget_agent: estimate total trip expenses
+itinerary_agent: combine the results into a travel plan
+"""
+AGENT_ORDER = [
+    "flight_agent",
+    "hotel_agent",
+    "weather_agent",
+    "budget_agent",
+    "itinerary_agent"
+]
+
+def _llm_text(system_prompt: str, user_prompt: str) -> str:
+    """
+    # send both prompts to the language model.
+    # Extract the generated text and return it as a string.
+    """
+    response = llm.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+    )
+    return str(response.content)
+
+def _json_from_llm(text: str) -> dict[str, Any]:
+    """
+    # Extract the first complete JSON object returned by the model.
+    # Find the first opening curly brace.
+    # Find the last closing curly brace.
+    # check whether a possible JSON object exists.
+    # Extract the JSON and convert it into a Python dictionary.
+    """
+    start = text.find("{")
+    end = text.rfind("}")
+
+    if start == -1 or end == -1 or end < start:
+        raise ValueError("The model did not return a JSON object.")
+
+    return json.loads(text[start : end + 1])
+
+def _empty_constraints() -> dict[str, Any]:
+    """
+    _empty_constraints(): helper creates a default dictionary of travel constraints for your tripMate AI application.
+
+    destination: where the user want to go - "Japan"
+    origin: where the trip starts - "Bengaluru"
+    duration: how long the trip lasts - "5 days"
+    bugdet: planned spending limit - "2,00,000"
+    travel_style: type of travel experience - "Adventure"
+    special_preferences: Additional requrirements - ["vegetarian food", "Near public transport"]
+    """
+    return {
+        "destination": "",
+        "origin": "",
+        "duration": "",
+        "budget": "",
+        "travel_style": "",
+        "special_preferences": [],
+    }
+
+
+def supervisor_agent(state: TravelState):
+    query = state["user_query"]
+    llm_calls = state.get("llm_calls", 0)
+
+    guardrail_prompt = f"""
+        Determine whether the following request belongs to travel planning or travel
+        information. Valid requests can include destinations, flights, hotels, weather,
+        budgets, visas, transportation, sightseeing, food, packing, or itineraries.
+
+        Block clearly unrelated requests and requests asking for harmful or illegal
+        instructions. Do not block a valid travel request merely because some details
+        are missing.
+
+        Return strict JSON only:
+        {{
+        "allowed": true,
+        "reason": ""
+        }}
+
+        User request:
+        {query}
+        """
+
+    # Fail open on parser/model errors so a temporary JSON-format issue does not
+    # break the original travel-planning behavior.
+    try:
+        guardrail_raw = _llm_text(
+            "You are the input guardrail for a travel-planning application. "
+            "Return strict JSON only.",
+            guardrail_prompt,
+        )
+        guardrail_result = _json_from_llm(guardrail_raw)
+        allowed = bool(guardrail_result.get("allowed", True))
+        guardrail_reason = str(guardrail_result.get("reason", "")).strip()
+        llm_calls += 1
+    except Exception as exc:
+        print(f"Guardrail fallback used: {exc}")
+        allowed = True
+        guardrail_reason = "Guardrail validation fallback allowed the request."
+
+    if not allowed:
+        reason = guardrail_reason or (
+            "TripMate AI can only help with travel-planning requests. "
+            "Please ask about a destination, flight, hotel, weather, budget, "
+            "or itinerary."
+        )
+        return {
+            "guardrail_allowed": False,
+            "guardrail_reason": reason,
+            "selected_agents": [],
+            "trip_constraints": _empty_constraints(),
+            "supervisor_reasoning": reason,
+            "final_response": reason,
+            "messages": [AIMessage(content=f"Guardrail blocked request: {reason}")],
+            "llm_calls": llm_calls,
+        }
+
+    supervisor_prompt = f"""
+        You are the supervisor of a multi-agent travel-planning system.
+        Choose only the specialist agents needed for the request.
+
+        Available agents:
+        - flight_agent: flights, airports, airlines, routes, airfare, or booking advice
+        - hotel_agent: hotels, accommodation, neighborhoods, or places to stay
+        - weather_agent: weather, climate, season, forecast, or packing advice
+        - budget_agent: cost, affordability, price limits, or budget feasibility
+        - itinerary_agent: creates the integrated travel plan and must always be included
+
+        Return strict JSON only using this schema:
+        {{
+        "selected_agents": ["flight_agent", "hotel_agent", "weather_agent", "budget_agent", "itinerary_agent"],
+        "trip_constraints": {{
+            "destination": "",
+            "origin": "",
+            "duration": "",
+            "budget": "",
+            "travel_style": "",
+            "special_preferences": []
+        }},
+        "reasoning": ""
+        }}
+
+        User request:
+        {query}
+        """
+
+    try:
+        supervisor_raw = _llm_text(
+            "You route work to travel specialist agents. Return strict JSON only.",
+            supervisor_prompt,
+        )
+        parsed = _json_from_llm(supervisor_raw)
+        requested_agents = parsed.get("selected_agents", [])
+        selected_agents = [
+            name for name in AGENT_ORDER
+            if name in requested_agents and name in KNOW_AGENTS
+        ]
+
+        # The itinerary agent integrates whichever specialist results were selected.
+        if "itinerary_agent" not in selected_agents:
+            selected_agents.append("itinerary_agent")
+
+        constraints = _empty_constraints()
+        parsed_constraints = parsed.get("trip_constraints", {})
+        if isinstance(parsed_constraints, dict):
+            constraints.update(parsed_constraints)
+
+        reasoning = str(parsed.get("reasoning", "")).strip()
+        llm_calls += 1
+    except Exception as exc:
+        print(f"Supervisor fallback used: {exc}")
+        # Original workflow behavior is preserved as the fallback.
+        selected_agents = AGENT_ORDER.copy()
+        constraints = _empty_constraints()
+        reasoning = (
+            "Supervisor parsing failed, so the original full travel workflow "
+            "was selected as a safe fallback."
+        )
+
+    return {
+        "guardrail_allowed": True,
+        "guardrail_reason": guardrail_reason,
+        "selected_agents": selected_agents,
+        "trip_constraints": constraints,
+        "supervisor_reasoning": reasoning,
+        "messages": [AIMessage(content="Supervisor created the agent plan.")],
+        "llm_calls": llm_calls,
+    }
 
 
 
